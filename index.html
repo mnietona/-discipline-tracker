@@ -2,23 +2,30 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tracker</title>
+<title>Discipline</title>
 
 <style>
 body {
-  font-family: sans-serif;
-  text-align: center;
-  padding: 20px;
-  background: #111;
+  margin: 0;
+  font-family: system-ui;
+  background: #0f172a;
   color: white;
+  display: flex;
+  justify-content: center;
+}
+
+.container {
+  max-width: 420px;
+  width: 100%;
+  padding: 20px;
+  text-align: center;
 }
 
 h1 { margin-bottom: 5px; }
 
 .bar {
-  width: 100%;
-  height: 30px;
-  background: #333;
+  height: 20px;
+  background: #1e293b;
   border-radius: 20px;
   overflow: hidden;
   margin: 15px 0;
@@ -26,125 +33,162 @@ h1 { margin-bottom: 5px; }
 
 .fill {
   height: 100%;
+  transition: 0.3s;
+}
+
+button {
   width: 100%;
-  transition: 0.5s;
-}
-
-button, input {
+  padding: 12px;
   margin-top: 10px;
-  padding: 10px;
-  border-radius: 8px;
   border: none;
-  font-size: 14px;
+  border-radius: 10px;
+  font-size: 15px;
 }
 
-button { background: #444; color: white; }
+.validate { background: #22c55e; }
+.reset { background: #ef4444; }
 
-.small { font-size: 14px; opacity: 0.7; }
+.calendar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+  margin-top: 20px;
+}
+
+.day {
+  padding: 10px 0;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.valid { background: #22c55e; }
+.fail { background: #ef4444; }
+.today { border: 2px solid white; }
+
+.stats {
+  margin-top: 15px;
+  font-size: 14px;
+  opacity: 0.8;
+}
 </style>
 </head>
 <body>
 
-<h1 id="counter"></h1>
-<div id="msg"></div>
+<div class="container">
+
+<h1 id="days"></h1>
+<div id="goal"></div>
 
 <div class="bar">
   <div class="fill" id="fill"></div>
 </div>
 
-<div class="small" id="stats"></div>
+<button class="validate" onclick="validate()">Valider aujourd'hui</button>
+<button class="reset" onclick="reset()">J'ai échoué</button>
 
-<br>
+<div class="calendar" id="calendar"></div>
 
-<input type="number" id="customGoal" placeholder="Objectif perso (jours)">
-<br>
-<button onclick="setGoal()">Définir objectif</button>
-<br>
+<div class="stats" id="stats"></div>
 
-<button onclick="reset()">Reset</button>
-<button onclick="testNotif()">Test notif</button>
+</div>
 
 <script>
-let defaultGoals = [3,5,10,15,30];
+let goals = [3,5,10,15,30];
 
-let start = localStorage.start;
+let days = parseInt(localStorage.days || 0);
 let level = parseInt(localStorage.level || 0);
-let totalStreak = parseInt(localStorage.total || 0);
-let history = JSON.parse(localStorage.history || "[]");
-let customGoal = localStorage.customGoal;
+let total = parseInt(localStorage.total || 0);
+let fails = parseInt(localStorage.fails || 0);
+let history = JSON.parse(localStorage.history || "{}");
 
-if (!start) {
-  start = Date.now();
-  localStorage.start = start;
-}
+let today = new Date();
+let todayStr = today.toDateString();
 
-let days = Math.floor((Date.now() - start) / 86400000);
-let goal = customGoal ? parseInt(customGoal) : (defaultGoals[level] || 30);
+let goal = goals[level] || 30;
 
-// affichage
-document.getElementById("counter").innerText =
-  days + " / " + goal + " jours";
+// UI
+document.getElementById("days").innerText = days + " jours";
+document.getElementById("goal").innerText = "Objectif: " + goal;
 
 // barre
 let percent = days / goal;
 let fill = document.getElementById("fill");
-fill.style.width = (100 - percent*100) + "%";
+fill.style.width = (percent * 100) + "%";
 
-if (percent < 0.5) fill.style.background = "green";
-else if (percent < 0.8) fill.style.background = "orange";
-else fill.style.background = "red";
-
-// message
-let msg = "";
-if (days === 0) msg = "On commence.";
-else if (percent < 0.5) msg = "Tu gères.";
-else if (percent < 0.8) msg = "Continue.";
-else if (percent < 1) msg = "Presque.";
-else msg = "Objectif atteint.";
-
-document.getElementById("msg").innerText = msg;
+if (percent < 0.5) fill.style.background = "#22c55e";
+else if (percent < 0.8) fill.style.background = "#f59e0b";
+else fill.style.background = "#ef4444";
 
 // stats
 document.getElementById("stats").innerText =
-  "🔥 Streak total: " + totalStreak +
-  " | 📅 rechutes: " + history.length;
+  "🔥 Total: " + total + " | ❌ Échecs: " + fails;
 
-// passage niveau
-if (days >= goal) {
-  totalStreak += goal;
-  localStorage.total = totalStreak;
+// validation
+function validate() {
+  if (history[todayStr]) {
+    alert("Déjà fait aujourd'hui");
+    return;
+  }
 
-  level++;
-  localStorage.level = level;
-  localStorage.start = Date.now();
+  history[todayStr] = "valid";
+  days++;
+  total++;
+
+  localStorage.history = JSON.stringify(history);
+  localStorage.days = days;
+  localStorage.total = total;
+
+  if (days >= goal) {
+    level++;
+    localStorage.level = level;
+    localStorage.days = 0;
+  }
+
+  location.reload();
 }
 
 // reset
 function reset() {
-  if (confirm("Reset = échec. Continuer ?")) {
-    history.push(new Date().toLocaleDateString());
-    localStorage.history = JSON.stringify(history);
-    localStorage.start = Date.now();
-  }
-}
+  let txt = prompt("Tape RESET");
 
-// objectif perso
-function setGoal() {
-  let val = document.getElementById("customGoal").value;
-  if (val > 0) {
-    localStorage.customGoal = val;
-    localStorage.start = Date.now();
+  if (txt === "RESET") {
+    history[todayStr] = "fail";
+    fails++;
+
+    localStorage.history = JSON.stringify(history);
+    localStorage.fails = fails;
+    localStorage.days = 0;
+    localStorage.level = 0;
+
     location.reload();
   }
 }
 
-// 🔔 notifications (limitées)
-function testNotif() {
-  if (Notification.permission === "granted") {
-    new Notification("Continue ton objectif !");
-  } else if (Notification.permission !== "denied") {
-    Notification.requestPermission();
-  }
+// calendrier
+let cal = document.getElementById("calendar");
+
+let year = today.getFullYear();
+let month = today.getMonth();
+
+let firstDay = new Date(year, month, 1).getDay();
+let daysInMonth = new Date(year, month+1, 0).getDate();
+
+// vide début
+for (let i = 0; i < firstDay; i++) {
+  cal.innerHTML += "<div></div>";
+}
+
+// jours
+for (let d = 1; d <= daysInMonth; d++) {
+  let date = new Date(year, month, d).toDateString();
+
+  let cls = "day";
+
+  if (history[date] === "valid") cls += " valid";
+  if (history[date] === "fail") cls += " fail";
+  if (date === todayStr) cls += " today";
+
+  cal.innerHTML += `<div class="${cls}">${d}</div>`;
 }
 </script>
 
