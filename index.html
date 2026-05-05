@@ -2,38 +2,48 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Discipline</title>
+<title>Streak System</title>
 
 <style>
 body {
   margin: 0;
   font-family: system-ui;
-  background: #0f172a;
+  background: #0b1220;
   color: white;
   display: flex;
   justify-content: center;
 }
 
 .container {
-  max-width: 420px;
   width: 100%;
+  max-width: 420px;
   padding: 20px;
   text-align: center;
 }
 
-h1 { margin-bottom: 5px; }
+h1 {
+  margin-bottom: 5px;
+  font-size: 28px;
+}
+
+.badge {
+  margin: 10px 0;
+  font-size: 14px;
+  opacity: 0.8;
+}
 
 .bar {
-  height: 20px;
+  height: 18px;
   background: #1e293b;
   border-radius: 20px;
   overflow: hidden;
-  margin: 15px 0;
+  margin: 20px 0;
 }
 
 .fill {
   height: 100%;
-  transition: 0.3s;
+  width: 0%;
+  transition: 0.4s;
 }
 
 button {
@@ -48,23 +58,6 @@ button {
 .validate { background: #22c55e; }
 .reset { background: #ef4444; }
 
-.calendar {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 5px;
-  margin-top: 20px;
-}
-
-.day {
-  padding: 10px 0;
-  border-radius: 6px;
-  font-size: 12px;
-}
-
-.valid { background: #22c55e; }
-.fail { background: #ef4444; }
-.today { border: 2px solid white; }
-
 .stats {
   margin-top: 15px;
   font-size: 14px;
@@ -72,21 +65,20 @@ button {
 }
 </style>
 </head>
+
 <body>
 
 <div class="container">
 
-<h1 id="days"></h1>
-<div id="goal"></div>
+<h1 id="streak"></h1>
+<div class="badge" id="badge"></div>
 
 <div class="bar">
   <div class="fill" id="fill"></div>
 </div>
 
-<button class="validate" onclick="validate()">Valider aujourd'hui</button>
-<button class="reset" onclick="reset()">J'ai échoué</button>
-
-<div class="calendar" id="calendar"></div>
+<button class="validate" onclick="validate()">Valider aujourd’hui</button>
+<button class="reset" onclick="reset()">Reset</button>
 
 <div class="stats" id="stats"></div>
 
@@ -95,100 +87,90 @@ button {
 <script>
 let goals = [3,5,10,15,30];
 
-let days = parseInt(localStorage.days || 0);
+let streak = parseInt(localStorage.streak || 0);
 let level = parseInt(localStorage.level || 0);
-let total = parseInt(localStorage.total || 0);
-let fails = parseInt(localStorage.fails || 0);
-let history = JSON.parse(localStorage.history || "{}");
+let cycles = parseInt(localStorage.cycles || 0);
+let last = localStorage.last || null;
 
-let today = new Date();
-let todayStr = today.toDateString();
+let today = new Date().toDateString();
 
 let goal = goals[level] || 30;
 
 // UI
-document.getElementById("days").innerText = days + " jours";
-document.getElementById("goal").innerText = "Objectif: " + goal;
+function render() {
+  document.getElementById("streak").innerText =
+    "🔥 " + streak + " jours";
 
-// barre
-let percent = days / goal;
-let fill = document.getElementById("fill");
-fill.style.width = (percent * 100) + "%";
+  document.getElementById("badge").innerText =
+    "🌙 Cycles complétés : " + cycles +
+    " | 🎯 Objectif : " + goal + " jours";
 
-if (percent < 0.5) fill.style.background = "#22c55e";
-else if (percent < 0.8) fill.style.background = "#f59e0b";
-else fill.style.background = "#ef4444";
+  let percent = streak / goal;
 
-// stats
-document.getElementById("stats").innerText =
-  "🔥 Total: " + total + " | ❌ Échecs: " + fails;
+  let fill = document.getElementById("fill");
+  fill.style.width = (percent * 100) + "%";
+
+  if (percent < 0.5) fill.style.background = "#22c55e";
+  else if (percent < 0.8) fill.style.background = "#f59e0b";
+  else fill.style.background = "#ef4444";
+
+  document.getElementById("stats").innerText =
+    "Objectif suivant : " + goal;
+}
+
+render();
 
 // validation
 function validate() {
-  if (history[todayStr]) {
-    alert("Déjà fait aujourd'hui");
+  if (last === today) {
+    alert("Déjà validé aujourd’hui");
     return;
   }
 
-  history[todayStr] = "valid";
-  days++;
-  total++;
+  streak++;
+  last = today;
 
-  localStorage.history = JSON.stringify(history);
-  localStorage.days = days;
-  localStorage.total = total;
+  localStorage.streak = streak;
+  localStorage.last = last;
 
-  if (days >= goal) {
+  // progression niveau
+  if (streak >= goal) {
     level++;
+    streak = 0;
     localStorage.level = level;
-    localStorage.days = 0;
+    localStorage.streak = streak;
+
+    // cycle terminé (30 jours atteint)
+    if (level >= goals.length) {
+      cycles++;
+      localStorage.cycles = cycles;
+
+      level = 0;
+      localStorage.level = 0;
+
+      // petite "récompense reset propre"
+      alert("🌙 Cycle terminé ! +1 mois validé");
+    }
   }
 
-  location.reload();
+  render();
 }
 
 // reset
 function reset() {
-  let txt = prompt("Tape RESET");
+  let txt = prompt("Tape RESET pour confirmer");
 
   if (txt === "RESET") {
-    history[todayStr] = "fail";
-    fails++;
+    streak = 0;
+    level = 0;
+    last = null;
 
-    localStorage.history = JSON.stringify(history);
-    localStorage.fails = fails;
-    localStorage.days = 0;
+    localStorage.streak = 0;
     localStorage.level = 0;
+    localStorage.last = null;
 
-    location.reload();
+    render();
   }
-}
-
-// calendrier
-let cal = document.getElementById("calendar");
-
-let year = today.getFullYear();
-let month = today.getMonth();
-
-let firstDay = new Date(year, month, 1).getDay();
-let daysInMonth = new Date(year, month+1, 0).getDate();
-
-// vide début
-for (let i = 0; i < firstDay; i++) {
-  cal.innerHTML += "<div></div>";
-}
-
-// jours
-for (let d = 1; d <= daysInMonth; d++) {
-  let date = new Date(year, month, d).toDateString();
-
-  let cls = "day";
-
-  if (history[date] === "valid") cls += " valid";
-  if (history[date] === "fail") cls += " fail";
-  if (date === todayStr) cls += " today";
-
-  cal.innerHTML += `<div class="${cls}">${d}</div>`;
 }
 </script>
 
